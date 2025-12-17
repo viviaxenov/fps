@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fps"
+authors = [
+  {name = "Vitalii Aksenov", email = "viviaxenov@gmail.com"},
+]
+readme = 'README.md'
+version = "0.0.1"
+requires-python = ">= 3.8"
+dependencies = [
+    "jax>=0.6.2",
+    "jaxtyping>=0.3.2",
+]
+
+[project.optional-dependencies]
+extra = [
+    "emcee>=3.1.6", 
+    "flax==0.10.4",
+]
