@@ -10,35 +10,45 @@ The key ingredient is constraining the vector fields to some reproducing kernel 
 ## Mathematical description
 
 For a given ISPD kernel $k$, we consider a space of smooth probability densities
+
 $$
-  \mathcal{P}_k(\mathbb{R^d}) := \left\{
+\mathcal{P}_k(\mathbb{R^d}) := 
+  \left\\{
         \rho \in \mathcal{P}(\mathbb{R}^d):
         \begin{gathered}
             \rho \text{ has smooth Lebesgue density},\\
-            \operatorname{supp} \rho = \mathbb{R}^d,\\
+            \mathrm{supp} \rho = \mathbb{R}^d,\\
             \int k(x, x)\mathrm{d}\rho(x) < \infty
-        \end{gathered} \right\}
+        \end{gathered} 
+      \right\\}
 $$
+
 with the associated (extended) metric
+
 $$
-    \begin{align}
+\begin{align}
     \mathrm{d}^2(\rho_0, \rho_1) := &\min\limits_{%
-        \begin{aligned}\rho_t &\in \mathcal{P}_k \\ v_t &\in \mathcal{H}^d_k \end{aligned}}
-        \int\limits_0^1\|v_t\|^2_{\mathcal{H}^d_k}\mathrm{d}{t}, \\
-          &\operatorname{s.t.}\quad
-            \begin{aligned}\notag
-                \partial_t \rho_t + \nabla(\rho_t v_t) &= 0,\\
-                    \rho_t(0) &= \rho_0\\  
-                    \rho_t(1) &= \rho_1
-            \end{aligned}
-    \end{align}
+    \begin{aligned}\rho_t &\in \mathcal{P}_k \\\\ v_t &\in \mathcal{H}^d_k \end{aligned}}
+    \int\limits_0^1\|v_t\|^2_{\mathcal{H}^d_k}\mathrm{d}{t}, \\
+        &\mathrm{s.t.}\quad
+        \begin{aligned}\notag
+          \partial_t \rho_t + \nabla(\rho_t v_t) &= 0,\\
+            \rho_t(0) &= \rho_0\\  
+            \rho_t(1) &= \rho_1
+        \end{aligned}
+\end{align}
 $$
+
 and wish to solve fixed-point problems, i.e. for some operator $G$ such that
+
 $$
-G:  \mathcal{P}_k(\mathbb{R}^d) \to  \mathcal{P}_k(\mathbb{R}^d) $$
+  G:  \mathcal{P}_k(\mathbb{R}^d) \to  \mathcal{P}_k(\mathbb{R}^d) 
+$$
+
 look for a density $\rho_*$
+
 $$
-\rho_* : \ G(\rho_* ) = \rho_* 
+  \rho_* : \ G(\rho_* ) = \rho_* 
 $$
 
 
