@@ -1,8 +1,3 @@
-<!-- fpw documentation master file, created by
-sphinx-quickstart on Wed Oct 30 17:14:49 2024.
-You can adapt this file completely to your liking, but it should at least
-contain the root `toctree` directive. -->
-
 # Fixed-point problems in Stein space
 The goal is to design novel algorithms for samplig and optimization over probability measures by adapting accelerated Riemannian fixed-point methods.
 The methods take a sample from a tractable initial distribution and gradually transforms it towards the target, using the history of the previous gradients and updates to accelerate convergence.
@@ -48,7 +43,7 @@ $$
 look for a density $\rho_*$
 
 $$
-  \rho_* : \ G(\rho_* ) = \rho_* 
+  \\rho_* : \\ G(\rho_* ) = \\rho_* 
 $$
 
 
@@ -63,22 +58,24 @@ pip install --upgrade fps@git+https://github.com/viviaxenov/fps
 
 ### Requirements
 
-* [`jax`](https://docs.jax.dev/en/latest/) --- handles automatic differentiation and compilation for running on GPU 
+* [`jax`](https://docs.jax.dev/en/latest/) &ndash; handles automatic differentiation and compilation for running on GPU 
 
 Optional:
 
-* [`flax`](https://flax.readthedocs.io/en/latest/nnx_basics.html) --- neural network framework to reproduce the Bayesian Regression example
-* [`emcee`](https://emcee.readthedocs.io/en/stable/) --- an implementation of MCMC to provide reference samples
+* [`flax`](https://flax.readthedocs.io/en/latest/nnx_basics.html) &ndash; neural network framework to reproduce the Bayesian Regression example
+* [`emcee`](https://emcee.readthedocs.io/en/stable/) &ndash; an implementation of MCMC to provide reference samples
 
 
 ## Usage example
 
 Here we demonstrate sampling from a model distribution, described by its unnormalized log density.
 In particular, the distribution has the form:
+
 $$
-    \rho(x) \propto e^{-\|x\|_p}
+    \\rho(x) \\propto e^{-\\| x \\|_p}, p = 4
 $$
-with $p = 4$.
+
+
 
 
 ```python
