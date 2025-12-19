@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import jax.scipy as jsp
 
 from functools import partial
+
 from .stein_manifold import *
 from ._utility import _as_generator
 

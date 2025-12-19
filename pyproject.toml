@@ -16,7 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-extra = [
-    "emcee>=3.1.6", 
+cuda13 = ["jax[cuda13]",],
+cuda12 = ["jax[cuda12]",],
+examples = [
     "flax==0.10.4",
+    "emcee",
+    "matplotlib",
 ]
