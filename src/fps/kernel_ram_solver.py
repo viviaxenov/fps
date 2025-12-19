@@ -149,7 +149,7 @@ class KernelRAMSolver:
         solver, metric_vals_run = jax.lax.scan(body_fn, solver, length=max_iter)
 
         metric_vals_run = jnp.array(metric_vals_run)
-        metric_vals = jnp.concatenate((metric_vals.T, metric_vals_run), axis=1)
+        metric_vals = jnp.concatenate((metric_vals, metric_vals_run), axis=0).T
 
         return solver, metric_vals
 

@@ -1,7 +1,5 @@
 import os
 
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 import jax
 from flax import nnx
 
@@ -19,7 +17,7 @@ from time import perf_counter
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
-from fpw.kernelRAMSolver import *
+from fps import *
 
 
 def _load_from_ucml_repo(name: str):
@@ -393,21 +391,7 @@ if __name__ == "__main__":
         x_SVGD = sample_init.copy()
         oper = getOperatorSteinGradKL(log_posterior, -tau)
 
-        def step_SVGD(carry, *args):
-            x_SVGD = carry
-            sg = oper(x_SVGD)
-            G = pairwiseScalarProductOfBasisVectors(x_SVGD, x_SVGD, kern)
-            v = evalTangent(x_SVGD, sg, x_SVGD, kern)
-
-            x_SVGD += v
-
-            d_rkhs = norm_rkhs(sg, G)
-            d_l2 = norm_l2(v)
-            lp_cur = lp_metric(x_SVGD)
-            rmse_cur = rmse_metric(x_SVGD)
-
-            return x_SVGD, (d_rkhs, d_l2, lp_cur, rmse_cur)
-
+        solver = PicardSolver(oper, kern)
         x_SVGD, metrics = jax.lax.scan(step_SVGD, x_SVGD, length=N_iter)
 
         return x_SVGD, metrics
@@ -428,7 +412,7 @@ if __name__ == "__main__":
         x0 = sample_init.copy()
         oper = getOperatorSteinGradKL(log_posterior, -tau)
 
-        solver = kernelRAMSolver(
+        solver = KernelRAMSolver(
             oper,
             kern,
             relaxation=1.00,

@@ -19,7 +19,6 @@ class PicardSolver:
         self._operator = operator
 
         self._kernel = kernel
-        self._relaxation = _as_generator(relaxation)
 
         self._x_cur, self._v_cur = (None,) * 2
         self._metrics = metrics
