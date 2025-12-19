@@ -34,7 +34,9 @@ $$
 \end{align}
 $$
 
-and wish to solve fixed-point problems, i.e. for some operator $G$ such that
+where $\mathcal{H}^d_k$ is the vector-valued reproducing kernel Hilbert space (RKHS), associated to the kernel $k$.
+
+We wish to solve fixed-point problems, i.e. for some operator $G$ such that
 
 $$
   G:  \mathcal{P}_k(\mathbb{R}^d) \to  \mathcal{P}_k(\mathbb{R}^d) 
