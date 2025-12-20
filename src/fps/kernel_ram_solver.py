@@ -60,9 +60,9 @@ class KernelRAMSolver:
         dx_l2 = norm_l2(v)
 
         metric_vals = (residual_rkhs, dx_l2)
-
         if self._metrics is not None:
             metric_vals += tuple(m(x1) for m in self._metrics)
+
 
         return self, metric_vals
 
@@ -123,12 +123,10 @@ class KernelRAMSolver:
         residual_rkhs = norm_rkhs(rk, Gk)
 
         dx_l2 = norm_l2(v)
-        metric_vals = jnp.array([residual_rkhs, dx_l2])
 
+        metric_vals = (residual_rkhs, dx_l2)
         if self._metrics is not None:
-            # metric_vals += tuple(m(self._x_cur) for m in self._metrics)
-            additional_metrics = jax.lax.map(lambda m: m(self._x_cur), self._metrics)
-            metrics_vals = jnp.concat((metric_vals, additional_metrics))
+            metric_vals += tuple(m(self._x_cur) for m in self._metrics)
 
         return self, metric_vals
 
@@ -149,7 +147,7 @@ class KernelRAMSolver:
 
         solver, metric_vals_run = jax.lax.scan(body_fn, solver, length=max_iter)
 
-        metric_vals_run = jnp.array(metric_vals_run)
+        metric_vals_run = jnp.array(metric_vals_run).T
         metric_vals = jnp.concatenate((metric_vals, metric_vals_run), axis=0).T
 
         return solver, metric_vals

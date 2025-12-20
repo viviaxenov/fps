@@ -11,15 +11,22 @@ readme = 'README.md'
 version = "0.0.1"
 requires-python = ">= 3.8"
 dependencies = [
-    "jax>=0.6.2",
     "jaxtyping>=0.3.2",
 ]
 
 [project.optional-dependencies]
-cuda13 = ["jax[cuda13]",],
-cuda12 = ["jax[cuda12]",],
+cuda13 = ["jax[cuda13]"]
+cuda12 = ["jax[cuda12]"]
 examples = [
-    "flax==0.10.4",
+    "flax==0.12.2",
     "emcee",
     "matplotlib",
+    "scikit-learn"
 ]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

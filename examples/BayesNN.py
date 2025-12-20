@@ -1,10 +1,13 @@
 import os
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.makedirs("./outputs", exist_ok=True)
+
 import jax
 from flax import nnx
 
 from jax.typing import ArrayLike
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable, Union, Literal
 
 import numpy as np
 import jax.numpy as jnp
@@ -61,21 +64,23 @@ class FullyConnected(nnx.Module):
         dim_hidden: int = 50,
         n_hidden: int = 1,
     ):
-        self.layers = [
-            nnx.Linear(
-                dim_input,
-                dim_hidden,
-                rngs=rngs,
-                kernel_init=nnx.initializers.variance_scaling(
-                    scale=1.0,
-                    mode="fan_in",
-                    distribution="normal",
-                ),
-                bias_init=nnx.initializers.constant(
-                    0.0,
-                ),
-            )
-        ]
+        self.layers = nnx.List(
+            [
+                nnx.Linear(
+                    dim_input,
+                    dim_hidden,
+                    rngs=rngs,
+                    kernel_init=nnx.initializers.variance_scaling(
+                        scale=1.0,
+                        mode="fan_in",
+                        distribution="normal",
+                    ),
+                    bias_init=nnx.initializers.constant(
+                        0.0,
+                    ),
+                )
+            ]
+        )
         for _ in range(n_hidden - 1):
             self.layers.append(
                 nnx.Linear(
@@ -352,8 +357,10 @@ if __name__ == "__main__":
         return bayes_nn.test_rmse(*bayes_nn.unflatten_params(params_flat))
 
     lp_flat_vmap = jax.vmap(log_posterior_flat)
-    lp_metric = nnx.jit(lambda _X: lp_flat_vmap(_X).max())
-    rmse_metric = nnx.jit(lambda _X: test_rmse_flat(_X).min())
+    # lp_metric = nnx.jit(lambda _X: lp_flat_vmap(_X).max())
+    # rmse_metric = nnx.jit(lambda _X: test_rmse_flat(_X).min())
+    lp_metric = lambda _X: lp_flat_vmap(_X).max()
+    rmse_metric = lambda _X: test_rmse_flat(_X).min()
 
     params_flat = bayes_nn.sample_prior_flat_params(10)
 
@@ -391,10 +398,17 @@ if __name__ == "__main__":
         x_SVGD = sample_init.copy()
         oper = getOperatorSteinGradKL(log_posterior, -tau)
 
-        solver = PicardSolver(oper, kern)
-        x_SVGD, metrics = jax.lax.scan(step_SVGD, x_SVGD, length=N_iter)
+        solver = PicardSolver(
+            oper,
+            kern,
+            metrics=(lp_metric, rmse_metric),
+        )
+        solver, metrics = solver.iterate(
+            x_SVGD,
+            max_iter=N_iter,
+        )
 
-        return x_SVGD, metrics
+        return solver._x_cur, metrics
 
     def sample_kRAM(
         log_posterior: Callable,
@@ -438,7 +452,7 @@ if __name__ == "__main__":
         log_posterior_flat, kern, sample_init, tau=1e-7, N_iter=10
     )
 
-    N_iter = 2000
+    N_iter = 20
     print("Starting SVGD", flush=True)
     _, (r_rkhs_SVGD, dx_l2_SVGD, vals_SVGD, rmses_SVGD) = sample_SVGD(
         log_posterior_flat, kern, sample_init, tau=5e-6, N_iter=N_iter
@@ -485,6 +499,6 @@ if __name__ == "__main__":
         ax.grid()
 
     fig.tight_layout()
-    fig.savefig("bayes_nn.pdf")
+    fig.savefig("./outputs/bayes_nn.pdf")
 
     plt.show()

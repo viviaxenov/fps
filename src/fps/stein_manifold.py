@@ -4,7 +4,7 @@ A density is represented by a sample
 
 .. math::
 
-    \\left\{x_i \\right\}_{i = \overline{1, N_{\\text{samples}}}},\\ x_i \\sim \\rho_* \\text{ i.i.d.}
+    \\left\{x_i \\right\}_{i = \\overline{1, N_{\\text{samples}}}},\\ x_i \\sim \\rho_* \\text{ i.i.d.}
 
 
 """
@@ -78,7 +78,7 @@ def norm_l2(v: jnp.ndarray) -> float:
 
 
 def getOperatorSteinGradKL(log_density_target: Callable, stepsize: jnp.float64) -> Callable:
-    """Given a funciton for the log density of the target distribution :math:`\\rho_*`, returns a function for the Stein gradient of the :math:`\operatorname{KL(\cdot | \\rho_*)}`
+    """Given a funciton for the log density of the target distribution :math:`\\rho_*`, returns a function for the Stein gradient of the :math:`\\operatorname{KL(\cdot | \\rho_*)}`
 
     Args:
         log_density_target: the log density of the target distribution (up to an additive constant).

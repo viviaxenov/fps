@@ -41,7 +41,7 @@ class PicardSolver:
         metric_vals = (residual_rkhs, dx_l2)
 
         if self._metrics is not None:
-            metric_vals += tuple(m(x1) for m in self._metrics)
+            metric_vals += tuple(m(self._x_cur) for m in self._metrics)
 
         return self, metric_vals
 
@@ -55,7 +55,7 @@ class PicardSolver:
         # TODO: inherit?
         metric_vals = (residual_rkhs, dx_l2)
         if self._metrics is not None:
-            metric_vals += tuple(m(x1) for m in self._metrics)
+            metric_vals += tuple(m(self._x_cur) for m in self._metrics)
 
         return self, metric_vals
 
