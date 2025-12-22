@@ -1,6 +1,5 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 os.makedirs("./outputs", exist_ok=True)
 
 import jax
@@ -41,14 +40,14 @@ solver = KernelRAMSolver(
 )
 
 
-solver, (d_rkhs_kram, d_l2_kram, _) = solver.iterate(x0.copy(), max_iter=N_iter)
+solver, (d_rkhs_kram, d_l2_kram, ) = solver.iterate(x0.copy(), max_iter=N_iter)
 x_kRAM = solver._x_cur
 
 solver_svgd = PicardSolver(
     oper,
     kern,
 )
-solver_svgd, (d_rkhs, d_l2, _) = solver_svgd.iterate(x0.copy(), max_iter=N_iter)
+solver_svgd, (d_rkhs, d_l2, ) = solver_svgd.iterate(x0.copy(), max_iter=N_iter)
 
 x_SVGD = solver_svgd._x_cur
 
