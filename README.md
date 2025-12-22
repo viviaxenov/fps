@@ -59,10 +59,10 @@ The goal of this project is to identify interesting fixed-point problems and to 
 pip install --upgrade fps@git+https://github.com/viviaxenov/fps
 ```
 ### GPU installation
-Example for `cuda13`, should also work for `cuda12`
+Example for `cuda13`, also works with `cuda12`
 ```bash
 unset LD_LIBRARY_PATH
-pip install .[cuda13]
+pip install ".[cuda13]"
 ```
 
 ### Requirements
