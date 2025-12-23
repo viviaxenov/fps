@@ -1,6 +1,6 @@
 import os
+from time import perf_counter
 
-os.makedirs("./outputs", exist_ok=True)
 
 import jax
 import jax.numpy as jnp
@@ -9,6 +9,7 @@ from fps import *
 
 import matplotlib.pyplot as plt
 
+# os.makedirs("./outputs", exist_ok=True)
 # Define the main parameters of the problem
 N_samples = 50
 dim = 3
@@ -31,6 +32,9 @@ kern = lambda _x1, _x2: jnp.exp(-((_x1 - _x2) ** 2).sum() / bandwidth**2)
 stepsize_SVGD = 0.5
 oper = getOperatorSteinGradKL(log_density_targ, -stepsize_SVGD)
 
+print("Starting kRAM")
+t = perf_counter()
+
 solver = KernelRAMSolver(
     oper,
     kern,
@@ -43,6 +47,11 @@ solver = KernelRAMSolver(
 solver, (d_rkhs_kram, d_l2_kram, ) = solver.iterate(x0.copy(), max_iter=N_iter)
 x_kRAM = solver._x_cur
 
+dt = perf_counter() - t
+print(f"\tExec time = {dt:.3e}\t per iter = {dt/N_iter:.2e}")
+
+print("Starting SVGD")
+t = perf_counter()
 solver_svgd = PicardSolver(
     oper,
     kern,
@@ -50,6 +59,8 @@ solver_svgd = PicardSolver(
 solver_svgd, (d_rkhs, d_l2, ) = solver_svgd.iterate(x0.copy(), max_iter=N_iter)
 
 x_SVGD = solver_svgd._x_cur
+dt = perf_counter() - t
+print(f"\tExec time = {dt:.3e}\t per iter = {dt/N_iter:.2e}")
 
 label_RAM = f"$k$RAM, m={solver._m}"
 
@@ -71,7 +82,7 @@ for ax in axs:
 
 axs[-1].legend()
 
-fig.savefig("./outputs/test_kRAM_convergence.pdf")
+fig.savefig("./test_kRAM_convergence.pdf")
 
 fig, axs = plt.subplots(1, 1)
 axs.scatter(*x_kRAM[:, :2].T, label=r"$x_\text{ kRAM}$")
@@ -79,4 +90,4 @@ axs.scatter(*x_SVGD[:, :2].T, label=r"$x_\text{ SVGD }$")
 # axs.scatter(*sample_targ[:, :2].T, label=r"$x_{\infty}$")
 axs.legend()
 
-fig.savefig("./outputs/test_kRAM_scatter.pdf")
+fig.savefig("./test_kRAM_scatter.pdf")
