@@ -5,5 +5,5 @@
 export CUDA_VISIBLE_DEVICES=1
 export XLA_PYTHON_CLIENT_PREALLOCATE="false"
 # Run the targeted python script
-python ../../BayesNN.py
+python ../../test_distributions.py
 

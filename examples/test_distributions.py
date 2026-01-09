@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 # os.makedirs("./outputs", exist_ok=True)
 # Define the main parameters of the problem
-N_samples = 50
+N_samples = 300
 dim = 3
 N_iter = 100
 
