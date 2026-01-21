@@ -4,6 +4,7 @@ from time import perf_counter
 
 import jax
 import jax.numpy as jnp
+import jax.scipy as jsp
 
 from fps import *
 
@@ -12,20 +13,30 @@ import matplotlib.pyplot as plt
 # os.makedirs("./outputs", exist_ok=True)
 # Define the main parameters of the problem
 N_samples = 300
-dim = 3
-N_iter = 100
+dim = 2
+N_iter = 300
 
 # define the target distribution
 m_targ = 0.0
 p = 4.0
 log_density_targ = lambda _x: -(((jnp.abs(_x - m_targ) ** p).sum()) ** (1.0 / p))
 
+def lp_double_banana(x: jnp.ndarray) -> jnp.ndarray:
+    r = jnp.sqrt(jnp.sum(x**2))
+    term1 = -2.0 * (r - 3.0)**2
+    t1 = -2.0 * (x[0] - 3.0)**2
+    t2 = -2.0 * (x[0] + 3.0)**2
+    term2 = jsp.special.logsumexp(jnp.array([t1, t2]))
+    return term1 + term2 
+
+log_density_targ = lp_double_banana
+
 # Produce initial sample
 key = jax.random.key(seed=5)
 x0 = jax.random.normal(key, (N_samples, dim))
 
 # Define a Gaussian RBF kernel with bandwith estimated from the median heuristic
-bandwidth = bandwidth_median(x0)
+bandwidth = bandwidth_median(x0) / 5.
 kern = lambda _x1, _x2: jnp.exp(-((_x1 - _x2) ** 2).sum() / bandwidth**2)
 
 # Define the operator as the Stein Gradient of KL divergence to the target distribution
@@ -67,6 +78,11 @@ label_RAM = f"$k$RAM, m={solver._m}"
 fig, axs = plt.subplots(2, 1, sharex=True)
 
 ax = axs[0]
+
+# cutoff = jnp.min(jnp.concatenate((d_rkhs, d_rkhs_kram)))
+# d_rkhs = d_rkhs - cutoff + 1e-10
+# d_rkhs_kram = d_rkhs_kram - cutoff + 1e-10
+
 ax.plot(d_rkhs_kram)
 ax.plot(d_rkhs, color="r")
 ax.set_ylabel(r"$\|r_t\|_{\mathcal{H}^d_k}$")

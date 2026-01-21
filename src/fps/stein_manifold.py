@@ -8,6 +8,7 @@ A density is represented by a sample
 
 
 """
+
 from typing import Callable, Union, List, Dict, Generator, Literal, Generator, Tuple
 
 import jax
@@ -15,6 +16,7 @@ import jax.numpy as jnp
 import jax.scipy as jsp
 
 from functools import partial
+
 
 @jax.jit
 def bandwidth_median(X: jnp.array) -> float:
@@ -24,15 +26,15 @@ def bandwidth_median(X: jnp.array) -> float:
         X: array of shape `(N_samples, dim)`, representing the sample
 
     Returns:
-        float: the bandwidth    
+        float: the bandwidth
     """
     N, d = X.shape
     X_diffs = X[jnp.newaxis, :, :] - X[:, jnp.newaxis, :]
     idx = jnp.triu_indices(N, k=1)
     X_diffs = X_diffs[*idx, :]
-    pairwise_dists = (X_diffs**2).sum(axis=-1)
-    h = jnp.median(pairwise_dists)
-    h = jnp.sqrt(0.5 * h / jnp.log(d + 1))
+    pairwise_sq_dists = (X_diffs**2).sum(axis=-1)
+    H = jnp.median(pairwise_sq_dists)
+    h = jnp.sqrt(0.5 * H / jnp.log(d + 1))
 
     return h
 
@@ -44,7 +46,7 @@ def norm_rkhs(x: jnp.ndarray, G: jnp.ndarray) -> float:
     The tangent vector is represented in the basis
 
     .. math::
-        
+
         \\left\\{k(\\cdot, x_i)e_j, \\nabla k(\cdot, x_i) \\right\\}_{ i = \\overline{1, N_{\\text{samples}}}, j = \\overline{1, d}}
 
 
@@ -68,7 +70,7 @@ def norm_l2(v: jnp.ndarray) -> float:
         v(x_i),\\ v \in L_2(\\rho_{\\text{cur}})
 
     Args:
-        v: the array of shape `(N_samples, dim)` with the values of :math:`v` 
+        v: the array of shape `(N_samples, dim)` with the values of :math:`v`
 
     Returns:
         The value of the vector's norm
@@ -77,7 +79,9 @@ def norm_l2(v: jnp.ndarray) -> float:
     return norm_l2
 
 
-def getOperatorSteinGradKL(log_density_target: Callable, stepsize: jnp.float64) -> Callable:
+def getOperatorSteinGradKL(
+    log_density_target: Callable, stepsize: jnp.float64
+) -> Callable:
     """Given a funciton for the log density of the target distribution :math:`\\rho_*`, returns a function for the Stein gradient of the :math:`\\operatorname{KL(\cdot | \\rho_*)}`
 
     Args:
@@ -162,7 +166,7 @@ def vectorTransport(
     x_prev: jnp.ndarray,
     tang_prev: jnp.ndarray,
     T_cur: jnp.ndarray,
-    reg_proj: jnp.float64 = 1e-6,
+    reg_proj: jnp.float64 = 1e-3,
 ):
     N, d = x_cur.shape
     M, d1 = x_prev.shape
@@ -174,14 +178,17 @@ def vectorTransport(
     # matTransition = pairwiseScalarProductOfBasisVectors(x_cur, x_prev)
     rhs = jnp.einsum("ijkl,klm->ijm", T_cur, tang_prev)
 
+    oper_trace = jnp.einsum("ijij", G_cur)
+    N_dof = N * d
+
+    eps = reg_proj * oper_trace / N_dof
+
     tang_cur = jsp.sparse.linalg.cg(
-        lambda _x: jnp.einsum("ijkl,klm->ijm", G_cur, _x) + reg_proj * _x,
+        lambda _x: jnp.einsum("ijkl,klm->ijm", G_cur, _x) + eps * _x,
         rhs,
         x0=rhs,
         tol=1e-5,
+        maxiter=1000,
     )[0]
 
     return tang_cur
-
-
-
