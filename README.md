@@ -3,7 +3,7 @@ The goal is to design novel algorithms for samplig and optimization over probabi
 The methods take a sample from a tractable initial distribution and gradually transforms it towards the target, using the history of the previous gradients and updates to accelerate convergence.
 The key ingredient is constraining the vector fields to some reproducing kernel Hilbert space (RKHS), as in the well-known Stein Variational Gradient Descent (SVGD) method.
 ## Mathematical description
-
+New Line
 For a given ISPD kernel $k$, we consider a space of smooth probability densities
 
 $$
