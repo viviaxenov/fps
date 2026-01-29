@@ -19,10 +19,12 @@ os.makedirs(os.path.dirname(out_h5), exist_ok=True)
 MCMC_Samples = 4000
 reader = emcee.backends.HDFBackend(H5_PATH, read_only=True)
 chain = reader.get_chain(discard=0, thin=1, flat=False)
+# Problem: not IID samples
 sample_targ = jnp.array(chain.reshape(-1, chain.shape[-1])[-MCMC_Samples:])
 
 
 def jax_log_prob(x: jnp.ndarray) -> jnp.ndarray:
+    # Check if correct behavior under vmap
     d = x.shape[0]
     m = (-1.0) ** (jnp.arange(d) + 1)
     norm4 = jnp.sum(jnp.abs(x - m) ** 0.5) ** 2
@@ -84,8 +86,10 @@ with h5py.File(out_h5, "a") as f:
             f.flush()
 
         oper = getOperatorSteinGradKL(jax_log_prob, -float(h))
+
         solver_svgd = PicardSolver(oper, kern, metrics=(sinkhorn_metric,))
         solver_svgd, (d_rkhs, d_l2, d_sinkhorn) = solver_svgd.iterate(x0.copy(), max_iter=N_iter)
+
         x_SVGD = solver_svgd._x_cur
 
         score = float(np.sum(np.asarray(d_sinkhorn, dtype=float).reshape(-1)))
