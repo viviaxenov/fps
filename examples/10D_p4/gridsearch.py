@@ -5,7 +5,7 @@ import jax
 import jax.numpy as jnp
 import emcee
 import matplotlib.pyplot as plt
-
+import matplotlib.ticker as mticker
 from fps.kernel_ram_solver import *
 from fps.picard_solver import *
 from ott.geometry import pointcloud
@@ -71,7 +71,7 @@ def sinkhorn_metric(X: jnp.ndarray) -> jnp.ndarray:
 h_min, h_max = 20.0, 50
 n_h = 75
 h_list = np.linspace(h_min, h_max, n_h).tolist()
-#h_list = []
+h_list = []
 def h_to_group_name(h: float) -> str:
     return f"h_{h:.10g}".replace(".", "p").replace("-", "m")
 
@@ -167,180 +167,204 @@ with h5py.File(out_h5, "a") as f:
 # -----------------------------
 # Read results + plots (score + last + best + curves)
 # -----------------------------
-hs = []
-scores = []
-lasts = []
-bests = []
+import matplotlib.ticker as mticker
 
-hs2 = []
-curves = []
+eps = 1e-6  # for shift-log safety
 
-with h5py.File(out_h5, "r") as f:
-    for gname in f.keys():
-        if not gname.startswith("h_"):
-            continue
-        if "d_sinkhorn" not in f[gname]:
-            continue
-
-        h = float(f[gname].attrs["h"])
-
-        # sparse sinkdiv (NaNs between eval steps)
-        s = np.array(f[gname]["d_sinkhorn"]).reshape(-1)
-
-        # prepend initial sinkdiv at iteration 0 (stored above)
-        s0 = f[gname].attrs.get("sinkhorn_init", np.nan)
-        s = np.concatenate([[s0], s])   # length = N_iter + 1
-
-        hs.append(h)
-        scores.append(float(np.nansum(s)))
-
-        finite = s[np.isfinite(s)]
-        if finite.size == 0:
-            lasts.append(np.nan)
-            bests.append(np.nan)
-        else:
-            lasts.append(float(finite[-1]))
-            bests.append(float(np.min(finite)))
-
-        hs2.append(h)
-        curves.append(s)
-
-# sort by h
-order = np.argsort(hs)
-hs_sorted     = np.array(hs)[order]
-scores_sorted = np.array(scores)[order]
-lasts_sorted  = np.array(lasts)[order]
-bests_sorted  = np.array(bests)[order]
-
-# Plot: score vs h
-plt.figure()
-plt.plot(hs_sorted, scores_sorted, marker="o")
-plt.xlabel("h")
-plt.ylabel("score = sum(d_sinkhorn) (init + only every n; ignore NaNs)")
-plt.tight_layout()
-out_png = out_h5.replace(".h5", "_score_vs_h.png")
-plt.savefig(out_png, dpi=300, bbox_inches="tight")
-plt.close()
-print("saved plot:", out_png)
-
-# Optional: last + best together
-plt.figure()
-plt.plot(
-    hs_sorted, lasts_sorted,
-    linestyle="-", marker="o", markersize=5, linewidth=2,
-    label="last sinkdiv"
-)
-plt.plot(
-    hs_sorted, bests_sorted,
-    linestyle="--", marker="s", markersize=5, linewidth=2,
-    label="best sinkdiv (min)"
-)
-plt.xlabel("h")
-plt.ylabel("sinkdiv")
-plt.legend()
-plt.tight_layout()
-out_lb = out_h5.replace(".h5", "_last_best_sinkdiv_vs_h.png")
-plt.savefig(out_lb, dpi=300, bbox_inches="tight")
-plt.close()
-print("saved plot:", out_lb)
-
-
-
-# Plot: sparse sinkhorn curves (only finite points, incl. init at t=0)
-order2 = np.argsort(hs2)
-hs2 = np.array(hs2)[order2]
-curves = [curves[i] for i in order2]
-
-fig, ax = plt.subplots(figsize=(12, 5))
-for h, s in zip(hs2, curves):
-    t = np.arange(len(s))   # includes t=0 init point
-    mask = np.isfinite(s)
-    ax.plot(t[mask], s[mask], marker="o", markersize=3, linewidth=1, label=f"h={h:g}")
-
-ax.set_xlabel("iteration")
-ax.set_ylabel("d_sinkhorn (sparse + init)")
-
-# Legend kompakt machen (mehrere Spalten, kleine Schrift, oben)
-ax.legend(
-    loc="upper center",
-    bbox_to_anchor=(0.5, 1.25),
-    ncol=4,          # ggf. 5-8 je nach Anzahl Kurven
-    fontsize=7,
-    frameon=False
-)
-
-fig.tight_layout(rect=[0, 0, 1, 0.9])  # Platz für Legende oben lassen
-
-out_png2 = out_h5.replace(".h5", "_all_sinkhorn_curves.png")
-fig.savefig(out_png2, dpi=300)         # <<< kein bbox_inches="tight"
-plt.close(fig)
-print("saved plot:", out_png2)
-
-print("saved h5:", out_h5)
-
-# --- NEW: plot 3 selected curves ---
-# 1) curve with lowest "last sinkdiv"
-# 2) curve with lowest "best/min sinkdiv"
-# 3) curve with lowest "score"
-# (Falls du "best last" als größtes last meinst -> np.argmax statt np.argmin.)
-
-scores_arr = np.asarray(scores, dtype=float)
-lasts_arr  = np.asarray(lasts, dtype=float)
-bests_arr  = np.asarray(bests, dtype=float)
-
-def safe_argmin(a):
+def safe_argmin(a: np.ndarray):
+    a = np.asarray(a, float)
     m = np.isfinite(a)
     if not np.any(m):
         return None
     tmp = np.where(m, a, np.inf)
     return int(np.argmin(tmp))
 
-i_last  = safe_argmin(lasts_arr)
-i_best  = safe_argmin(bests_arr)
-i_score = safe_argmin(scores_arr)
+def shift_for_log(y, y0, eps=1e-6):
+    y = np.asarray(y, float)
+    out = np.full_like(y, np.nan, dtype=float)
+    m = np.isfinite(y)
+    out[m] = np.maximum(y[m] - y0 + eps, eps)
+    return out
 
-fig, ax = plt.subplots(figsize=(10, 5))
+def curve_shift(s, y0, eps=1e-6):
+    s = np.asarray(s, float)
+    out = np.full_like(s, np.nan, dtype=float)
+    m = np.isfinite(s)
+    out[m] = np.maximum(s[m] - y0 + eps, eps)
+    return out
 
-def plot_curve(i, label, linestyle, marker):
-    if i is None:
-        return
-    s = curves[i]
-    t = np.arange(len(s))
-    mask = np.isfinite(s)
-    ax.plot(
-        t[mask], s[mask],
-        linestyle=linestyle, marker=marker,
-        markersize=4, linewidth=2,
-        label=label
-    )
+def apply_shiftlog_axis_with_original_labels(ax, y0, eps=1e-6):
+    """
+    Axis is log in shifted coordinates (y - y0 + eps),
+    but tick labels are shown in ORIGINAL y-units.
+    """
+    ax.set_yscale("log")
+
+    def fmt(v, pos):
+        # v is in shifted units; map back to original y
+        y = y0 + v - eps
+        return f"{y:.4g}"
+
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(fmt))
+
+# -----------------------------
+# Read results from out_h5
+# -----------------------------
+hs = []
+lasts = []
+bests = []
+curves = []
+
+with h5py.File(out_h5, "r") as f:
+    for gname in f.keys():
+        if not gname.startswith("h_"):
+            continue
+        g = f[gname]
+        if "d_sinkhorn" not in g:
+            continue
+
+        h = float(g.attrs.get("h", np.nan))
+        s = np.array(g["d_sinkhorn"]).reshape(-1)
+
+        # prepend init (t=0) if stored
+        s0 = g.attrs.get("sinkhorn_init", np.nan)
+        s = np.concatenate([[s0], s])
+
+        hs.append(h)
+        curves.append(s)
+
+        finite = s[np.isfinite(s)]
+        lasts.append(float(finite[-1]) if finite.size else np.nan)
+        bests.append(float(np.min(finite)) if finite.size else np.nan)
+
+hs = np.asarray(hs, float)
+lasts = np.asarray(lasts, float)
+bests = np.asarray(bests, float)
+
+# sort consistently by h
+order = np.argsort(hs)
+hs = hs[order]
+lasts = lasts[order]
+bests = bests[order]
+curves = [curves[i] for i in order]
+
+# =============================
+# 1) Plot: 2 selected curves
+#    - curve with minimal last
+#    - curve with minimal best/min
+# =============================
+i_last = safe_argmin(lasts)
+i_best = safe_argmin(bests)
+
+# y0 = global min among the plotted (selected) curves
+sel = [i for i in [i_last, i_best] if i is not None]
+vals = []
+for i in sel:
+    v = curves[i][np.isfinite(curves[i])]
+    if v.size:
+        vals.append(v)
+y0_sel = float(np.min(np.concatenate(vals))) if vals else 0.0
+ymax_sel = float(np.max(np.concatenate(vals))) if vals else 1.0
+
+fig, ax = plt.subplots(figsize=(12, 5))
 
 if i_last is not None:
-    plot_curve(
-        i_last,
-        f"best last: h={hs2[i_last]:g}, last={lasts_arr[i_last]:.4g}",
-        "-", "o"
-    )
+    s = curves[i_last]
+    t = np.arange(len(s))
+    y = curve_shift(s, y0_sel, eps)         # plot in shifted coords
+    m = np.isfinite(y)
+    ax.plot(t[m], y[m], "-", marker="o", markersize=4, linewidth=2,
+            label=f"min last: h={hs[i_last]:g}, last={lasts[i_last]:.4g}")
 
 if i_best is not None:
-    plot_curve(
-        i_best,
-        f"best min:  h={hs2[i_best]:g}, min={bests_arr[i_best]:.4g}",
-        "--", "s"
-    )
+    s = curves[i_best]
+    t = np.arange(len(s))
+    y = curve_shift(s, y0_sel, eps)
+    m = np.isfinite(y)
+    ax.plot(t[m], y[m], "--", marker="s", markersize=4, linewidth=2,
+            label=f"min best: h={hs[i_best]:g}, min={bests[i_best]:.4g}")
 
-if i_score is not None:
-    plot_curve(
-        i_score,
-        f"best score: h={hs2[i_score]:g}, score={scores_arr[i_score]:.4g}",
-        ":", "D"
-    )
-
+apply_shiftlog_axis_with_original_labels(ax, y0_sel, eps)
+ax.set_ylim(eps, (ymax_sel - y0_sel + eps))    # starts at min (mapped), not 0
 ax.set_xlabel("iteration")
-ax.set_ylabel("d_sinkhorn (sparse + init)")
+ax.set_ylabel("d_sinkhorn (shift-log scaling, original labels)")
 ax.legend()
 fig.tight_layout()
 
-out_sel = out_h5.replace(".h5", "_selected_3_sinkhorn_curves.png")
-fig.savefig(out_sel, dpi=300, bbox_inches="tight")
+out1 = out_h5.replace(".h5", "_selected_minlast_minbest_curves_shiftlog_labels.png")
+fig.savefig(out1, dpi=300, bbox_inches="tight")
 plt.close(fig)
-print("saved plot:", out_sel)
+print("saved plot:", out1)
+
+# =============================
+# 2) Plot: all sinkdiv curves (shift-log, original labels)
+# =============================
+vals = []
+for s in curves:
+    v = s[np.isfinite(s)]
+    if v.size:
+        vals.append(v)
+
+y0_all = float(np.min(np.concatenate(vals))) if vals else 0.0
+ymax_all = float(np.max(np.concatenate(vals))) if vals else 1.0
+
+fig, ax = plt.subplots(figsize=(12, 7))
+
+# show only ~12 legend entries
+step = max(1, len(curves) // 12)
+
+for idx, (h, s) in enumerate(zip(hs, curves)):
+    t = np.arange(len(s))
+    y = curve_shift(s, y0_all, eps)
+    m = np.isfinite(y)
+    label = f"h={h:g}" if (idx % step == 0) else None
+    ax.plot(t[m], y[m], linewidth=1, label=label)
+
+apply_shiftlog_axis_with_original_labels(ax, y0_all, eps)
+ax.set_ylim(eps, (ymax_all - y0_all + eps))
+ax.set_xlabel("iteration")
+ax.set_ylabel("d_sinkhorn (shift-log scaling, original labels)")
+
+ax.legend(
+    loc="upper center",
+    bbox_to_anchor=(0.5, 1.18),
+    ncol=4,
+    fontsize=8,
+    frameon=False
+)
+
+fig.tight_layout(rect=[0, 0, 1, 0.92])
+out2 = out_h5.replace(".h5", "_all_sinkhorn_curves_shiftlog_labels.png")
+fig.savefig(out2, dpi=300)
+plt.close(fig)
+print("saved plot:", out2)
+
+# =============================
+# 3) Plot: best(min) + last over h (shift-log, original labels)
+# =============================
+finite_last = lasts[np.isfinite(lasts)]
+finite_best = bests[np.isfinite(bests)]
+if finite_last.size or finite_best.size:
+    y0_h = float(np.min(np.concatenate([finite_last, finite_best])))
+    ymax_h = float(np.max(np.concatenate([finite_last, finite_best])))
+else:
+    y0_h, ymax_h = 0.0, 1.0
+
+lasts_shift = shift_for_log(lasts, y0_h, eps)
+bests_shift = shift_for_log(bests, y0_h, eps)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(hs, lasts_shift, "-",  marker="o", markersize=5, linewidth=2, label="last sinkdiv")
+ax.plot(hs, bests_shift, "--", marker="s", markersize=5, linewidth=2, label="best sinkdiv (min)")
+
+apply_shiftlog_axis_with_original_labels(ax, y0_h, eps)
+ax.set_ylim(eps, (ymax_h - y0_h + eps))
+ax.set_xlabel("h")
+ax.set_ylabel("sinkdiv (shift-log scaling, original labels)")
+ax.legend()
+fig.tight_layout()
+
+out3 = out_h5.replace(".h5", "_last_best_vs_h_shiftlog_labels.png")
+fig.savefig(out3, dpi=300, bbox_inches="tight")
+plt.close(fig)
+print("saved plot:", out3)
