@@ -10,6 +10,8 @@ from fps.kernel_ram_solver import *
 from fps.picard_solver import *
 from ott.geometry import pointcloud
 from ott.tools import sinkhorn_divergence
+import corner
+
 
 
 # -----------------------------
@@ -210,10 +212,13 @@ def apply_shiftlog_axis_with_original_labels(ax, y0, eps=1e-6):
 # -----------------------------
 # Read results from out_h5
 # -----------------------------
+# Read results from out_h5
 hs = []
 lasts = []
 bests = []
 curves = []
+gnames = []
+samples = []  
 
 with h5py.File(out_h5, "r") as f:
     for gname in f.keys():
@@ -222,31 +227,37 @@ with h5py.File(out_h5, "r") as f:
         g = f[gname]
         if "d_sinkhorn" not in g:
             continue
+        if "x_SVGD_last" not in g:   
+            continue
 
         h = float(g.attrs.get("h", np.nan))
         s = np.array(g["d_sinkhorn"]).reshape(-1)
 
-        # prepend init (t=0) if stored
         s0 = g.attrs.get("sinkhorn_init", np.nan)
         s = np.concatenate([[s0], s])
 
+        finite = s[np.isfinite(s)]
+        last = float(finite[-1]) if finite.size else np.nan
+        best = float(np.min(finite)) if finite.size else np.nan
+
         hs.append(h)
         curves.append(s)
-
-        finite = s[np.isfinite(s)]
-        lasts.append(float(finite[-1]) if finite.size else np.nan)
-        bests.append(float(np.min(finite)) if finite.size else np.nan)
-
+        lasts.append(last)
+        bests.append(best)
+        gnames.append(gname)
+        samples.append(np.array(g["x_SVGD_last"])) 
 hs = np.asarray(hs, float)
 lasts = np.asarray(lasts, float)
 bests = np.asarray(bests, float)
 
-# sort consistently by h
 order = np.argsort(hs)
 hs = hs[order]
 lasts = lasts[order]
 bests = bests[order]
 curves = [curves[i] for i in order]
+gnames = [gnames[i] for i in order]
+samples = [samples[i] for i in order]
+
 
 # =============================
 # 1) Plot: 2 selected curves
@@ -368,3 +379,33 @@ out3 = out_h5.replace(".h5", "_last_best_vs_h_shiftlog_labels.png")
 fig.savefig(out3, dpi=300, bbox_inches="tight")
 plt.close(fig)
 print("saved plot:", out3)
+
+i_best = int(np.nanargmin(lasts))
+data = samples[i_best]
+best_gname = gnames[i_best]
+best_h = hs[i_best]
+best_last = lasts[i_best]
+
+# ggf. auf 4 dims schneiden, falls data mehr Dimensionen hat:
+# data = data[:, [0,1,2,3]]
+
+D = data.shape[1]
+labels = [fr"$x_{{{i}}}$" for i in range(D)]
+
+figure = corner.corner(
+    data,
+    labels=labels,
+    quantiles=[0.16, 0.5, 0.84],
+    show_titles=True,
+    title_kwargs={"fontsize": 12},
+)
+
+figure.suptitle(
+    f"Best run (min sink_last) | {best_gname} | h={best_h:g} | sink_last={best_last:.4g}",
+    y=1.02
+)
+
+out_png = out_h5.replace(".h5", f"_corner_minlast.png")
+figure.savefig(out_png, dpi=250, bbox_inches="tight")
+plt.close(figure)
+print("saved:", out_png)
